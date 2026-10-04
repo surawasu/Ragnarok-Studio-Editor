@@ -1,0 +1,8 @@
+.vs/
+bin/
+obj/
+publish/
+release-*/
+Maven Studio/
+*.user
+*.suo
