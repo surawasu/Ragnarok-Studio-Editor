@@ -1,0 +1,30 @@
+PASS Lua/LUB content detection: text .lua, textual .lub, UTF-8 auto, bytecode signature, empty strings
+PASS parser cancellation
+PASS Ragnarok Description preview: line breaks + ^RRGGBB color rendering
+PASS Client Color Helper: 19 basic colors + selection wrap + reset code
+PASS Barter CRUD: add/clone reward, add/delete/reorder recipe, safe auto-index
+PASS Item Editor safe override round-trip + live tbl_custom block update + server import installation
+GRF index: 362,571 winning entries; 1.33s; managed memory 179 MiB
+PASS GRF provider chains: 47,890 resources have 2+ providers
+PASS large GRF >2GB indexed: data.grf = 4,229,842,210 bytes (3.939 GiB)
+maven-main.grf: 1,511,699,427 bytes (1.41 GiB), 0 lower-priority entries shadowed
+0: D:\Maven-RO-client\maven-main.grf
+en.grf: 37,411,251 bytes (0.03 GiB), 544 lower-priority entries shadowed
+1: D:\Maven-RO-client\en.grf
+official_data.grf: 600,226,581 bytes (0.56 GiB), 14,464 lower-priority entries shadowed
+2: D:\Maven-RO-client\official_data.grf
+data.grf: 4,229,842,210 bytes (3.94 GiB), 33,422 lower-priority entries shadowed
+3: D:\Maven-RO-client\data.grf
+DATA.ini priority map: 0=maven-main.grf, 1=en.grf, 2=official_data.grf, 3=data.grf
+Packed itemInfo candidate: data\luafiles514\lua files\datainfo\iteminfo.lub @ data.grf
+Packed itemInfo parse: 9,647 entries, 0.18s; source=D:\Maven-RO-client\data.grf :: data\luafiles514\lua files\datainfo\iteminfo.lub
+PASS Korean path byte preservation
+Image sample: decoded 100; unsupported encrypted 0; failures 0
+Real itemInfo: 21,482 entries, 0.22s
+Item 501: 빨간포션; resource=빨간포션
+Item 501 image: 24x24; D:\Maven-RO-client\maven-main.grf :: data\texture\유저인터페이스\item\빨간포션.bmp
+SERVER catalog: activeDB=6, items=9,068, aegis=9,069, barter=18, pet=5, npc=1,294
+PASS Server Script Helper: 383 source-derived bonus definitions including bAllStats, bDropAddRace, bMaxHP, bMaxHPrate, bSubRace, bAddRace, bMagicAddRace
+PASS Server editor discovery + active Item DB + Barter/Pet YAML validation
+PASS Project Validator headless report + Hot Week V2 diagnostics
+Exit=0

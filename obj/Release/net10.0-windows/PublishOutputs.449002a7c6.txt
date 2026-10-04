@@ -1,0 +1,10 @@
+D:\JUTI-RO\MavenROStudio-New\release-3.4\MavenROStudio.exe
+D:\JUTI-RO\MavenROStudio-New\release-3.4\config.json
+D:\JUTI-RO\MavenROStudio-New\release-3.4\README.md
+D:\JUTI-RO\MavenROStudio-New\release-3.4\ROADMAP.md
+D:\JUTI-RO\MavenROStudio-New\release-3.4\HOT_WEEK_BARTER_V2.md
+D:\JUTI-RO\MavenROStudio-New\release-3.4\MavenROStudio.dll
+D:\JUTI-RO\MavenROStudio-New\release-3.4\MavenROStudio.deps.json
+D:\JUTI-RO\MavenROStudio-New\release-3.4\MavenROStudio.runtimeconfig.json
+D:\JUTI-RO\MavenROStudio-New\release-3.4\MavenROStudio.pdb
+D:\JUTI-RO\MavenROStudio-New\release-3.4\YamlDotNet.dll

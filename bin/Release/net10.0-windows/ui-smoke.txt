@@ -1,0 +1,9 @@
+GRF UI load: 362571 winning assets; timer ticks=80
+Item UI counts: clientSources=4; dbSources=6; client=29237; server=9068; merged=29424; visible=29424; virtual=29424
+Catalog: itemDb=12; barter=18; pet=5; npc=1294; aegis=9069
+Last virtual row: index=29423; id=33231009; expected=33231009
+Editors: item=True; barter=True; npc=True; pet=True; validator=True
+Item Editor: full virtual list 29,424 + GRF icon + game Description preview + client color helper + 383 server bonus helpers + mandatory save confirmation = PASS
+Barter visual layout: Sold Items + Required Items + Item Preview + Equip Preview = PASS
+Flat Purple UI: shell + grouped sidebar + active purple nav + dark inputs/tables + semantic status colors = PASS
+PASS UI smoke
