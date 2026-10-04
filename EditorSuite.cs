@@ -16,10 +16,8 @@ public sealed class EditorContext {
     public required Action<string> Log { get; init; }
 }
 
-public sealed class ItemEditorControl : UserControl {
-    readonly EditorContext ctx;
-    readonly TextBox id=new(){Width=110};
-    readonly Label state=new(){AutoSize=true,Padding=new Padding(10,8,0,0)};
+public sealed partial class ItemEditorControl {
+    EditorContext ctx=null!;
     readonly TextBox cName=new(){Dock=DockStyle.Top};
     readonly TextBox cResource=new(){Dock=DockStyle.Top};
     readonly TextBox cDesc=new(){Dock=DockStyle.Fill,Multiline=true,ScrollBars=ScrollBars.Both,WordWrap=true};
@@ -47,11 +45,8 @@ public sealed class ItemEditorControl : UserControl {
     readonly Label bonusHelp=new(){Dock=DockStyle.Bottom,Height=96,AutoEllipsis=true,Padding=new Padding(6)};
     List<ServerScriptSnippet> bonusSnippets=[],visibleBonusSnippets=[];
     string bonusCatalogRoot="";
+    FlowLayoutPanel? clientColorTools;
 
-    readonly TextBox itemSearch=new(){Dock=DockStyle.Top,PlaceholderText="ค้นหา ID / AegisName / Name / Resource"};
-    readonly ListView itemList=new(){Dock=DockStyle.Fill,View=View.Details,VirtualMode=true,FullRowSelect=true,HideSelection=false,GridLines=true};
-    readonly PictureBox itemIcon=new(){Size=new Size(112,112),SizeMode=PictureBoxSizeMode.Zoom,BackColor=Color.FromArgb(38,38,44),Margin=new Padding(10)};
-    readonly Label itemIconInfo=new(){AutoSize=true,MaximumSize=new Size(300,0)};
     List<int> allItemIds=[],visibleItemIds=[];
     CancellationTokenSource? iconCancel;
 
@@ -60,78 +55,44 @@ public sealed class ItemEditorControl : UserControl {
     public bool SaveConfirmationRequired=>true;
     public bool DescriptionPreviewReady=>cDescPreview!=null;
     public bool ClientColorHelperReady=>clientColorPreset.Items.Count==RagnarokColorHelper.BasicColors.Count;
+    public bool DesignerOwnedLayoutReady=>id.Parent!=null&&itemSearch.Parent!=null&&itemList.Parent!=null&&itemIcon.Parent!=null&&main.SplitterDistance>=300;
+    public bool ClientColorContrastReady=>clientColorTools!=null&&clientColorTools.BackColor==StudioTheme.Surface2&&clientColorHex.BackColor!=clientColorHex.ForeColor;
+    public int ItemListPaneWidth=>main.SplitterDistance;
     public int ScriptHelperCount=>bonusSnippets.Count;
 
-    public ItemEditorControl(EditorContext context) {
-        ctx=context;Dock=DockStyle.Fill;
+    void RuntimeInitialize(EditorContext context) {
+        ctx=context;
 
-        var top=new FlowLayoutPanel{Dock=DockStyle.Top,Height=44,WrapContents=false};
-        top.Controls.Add(new Label{Text="Item ID",AutoSize=true,Padding=new Padding(0,8,0,0)});top.Controls.Add(id);
-        Button(top,"Load",LoadItem);Button(top,"Client → DB",ClientToDb);Button(top,"DB → Client",DbToClient);
-        Button(top,"Save Client",async()=>await SaveClient(true));
-        Button(top,"Save Server",async()=>await SaveServer(true));
-        Button(top,"Save Both",SaveBoth);
-        top.Controls.Add(state);
+        btnLoad.Click+=(_,_)=>LoadItem();
+        btnClientToDb.Click+=(_,_)=>ClientToDb();
+        btnDbToClient.Click+=(_,_)=>DbToClient();
+        btnSaveClient.Click+=async(_,_)=>await SaveClient(true);
+        btnSaveServer.Click+=async(_,_)=>await SaveServer(true);
+        btnSaveBoth.Click+=async(_,_)=>await SaveBoth();
 
-        itemList.Columns.Add("ID",72);
-        itemList.Columns.Add("AegisName",145);
-        itemList.Columns.Add("Name",190);
-        itemList.Columns.Add("Client Name",190);
-        itemList.Columns.Add("Status",95);
         itemList.RetrieveVirtualItem+=ItemListRetrieve;
         itemList.SelectedIndexChanged+=(_,_)=>LoadSelectedFromList();
         itemSearch.TextChanged+=(_,_)=>FilterItemList();
         cDesc.TextChanged+=(_,_)=>RagnarokDescriptionPreview.Render(cDescPreview,cDesc.Text);
 
         foreach(var color in RagnarokColorHelper.BasicColors)clientColorPreset.Items.Add(color);
-        clientColorPreset.SelectedIndex=0;
+        if(clientColorPreset.Items.Count>0)clientColorPreset.SelectedIndex=0;
         clientColorPreset.SelectedIndexChanged+=(_,_)=>SelectPresetColor();
         clientColorHex.TextChanged+=(_,_)=>UpdateColorSwatch();
+        UpdateColorSwatch();
 
         bonusTarget.Items.AddRange(["Script","EquipScript","UnEquipScript"]);
         bonusTarget.SelectedIndex=0;
-        bonusList.Columns.Add("Bonus",145);
-        bonusList.Columns.Add("Command",72);
-        bonusList.Columns.Add("Syntax",360);
         bonusList.SelectedIndexChanged+=(_,_)=>ShowBonusHelp();
         bonusList.DoubleClick+=(_,_)=>InsertSelectedBonus();
         bonusSearch.TextChanged+=(_,_)=>FilterBonusList();
+
+        clientHost.Controls.Clear();
+        var clientPanel=ClientPanel();clientPanel.Dock=DockStyle.Fill;clientHost.Controls.Add(clientPanel);
+        serverHost.Controls.Clear();
+        var serverPanel=ServerPanel();serverPanel.Dock=DockStyle.Fill;serverHost.Controls.Add(serverPanel);
+
         LoadBonusCatalog();
-
-        var left=new Panel{Dock=DockStyle.Fill,Padding=new Padding(6)};
-        var listTitle=new Label{Text="ALL ITEMS",Dock=DockStyle.Top,Height=30,Font=new Font(Font,FontStyle.Bold),TextAlign=ContentAlignment.MiddleLeft};
-        left.Controls.Add(itemList);
-        left.Controls.Add(itemSearch);
-        left.Controls.Add(listTitle);
-
-        var editorArea=new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=2,ColumnCount=1};
-        editorArea.RowStyles.Add(new RowStyle(SizeType.Absolute,142));
-        editorArea.RowStyles.Add(new RowStyle(SizeType.Percent,100));
-
-        var preview=new GroupBox{Text="Item Preview",Dock=DockStyle.Fill,Padding=new Padding(8)};
-        var previewLayout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1};
-        previewLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,135));
-        previewLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-        var iconHost=new Panel{Dock=DockStyle.Fill};
-        itemIcon.Location=new Point(8,8);iconHost.Controls.Add(itemIcon);
-        var previewInfoHost=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true,Padding=new Padding(6)};
-        previewInfoHost.Controls.Add(itemIconInfo);
-        previewLayout.Controls.Add(iconHost,0,0);previewLayout.Controls.Add(previewInfoHost,1,0);
-        preview.Controls.Add(previewLayout);
-        editorArea.Controls.Add(preview,0,0);
-
-        var editSplit=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2};
-        editSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));
-        editSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));
-        editSplit.Controls.Add(ClientPanel(),0,0);
-        editSplit.Controls.Add(ServerPanel(),1,0);
-        editorArea.Controls.Add(editSplit,0,1);
-
-        var main=new SplitContainer{Dock=DockStyle.Fill,SplitterDistance=390};
-        main.Panel1.Controls.Add(left);
-        main.Panel2.Controls.Add(editorArea);
-
-        Controls.Add(main);Controls.Add(top);
         RefreshItemList();
     }
 
@@ -142,7 +103,8 @@ public sealed class ItemEditorControl : UserControl {
         var rawPage=new TabPage("Description Raw");
         var previewPage=new TabPage("Game Preview");
 
-        var colorTools=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=82,WrapContents=true,AutoScroll=true,Padding=new Padding(4),BackColor=Color.FromArgb(245,245,248)};
+        clientColorTools=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=82,WrapContents=true,AutoScroll=true,Padding=new Padding(4),BackColor=StudioTheme.Surface2,ForeColor=StudioTheme.Text};
+        var colorTools=clientColorTools;
         colorTools.Controls.Add(new Label{Text="Color",AutoSize=true,Padding=new Padding(0,7,0,0)});
         colorTools.Controls.Add(clientColorPreset);
         colorTools.Controls.Add(clientColorSwatch);
@@ -258,9 +220,11 @@ public sealed class ItemEditorControl : UserControl {
             string hex=RagnarokColorHelper.NormalizeHex(clientColorHex.Text);
             int rgb=Convert.ToInt32(hex,16);
             clientColorSwatch.BackColor=Color.FromArgb((rgb>>16)&255,(rgb>>8)&255,rgb&255);
-            clientColorHex.BackColor=SystemColors.Window;
+            clientColorHex.BackColor=StudioTheme.Input;
+            clientColorHex.ForeColor=StudioTheme.Text;
         }catch{
-            clientColorHex.BackColor=Color.MistyRose;
+            clientColorHex.BackColor=Color.FromArgb(70,32,44);
+            clientColorHex.ForeColor=StudioTheme.Danger;
         }
     }
 
@@ -621,32 +585,33 @@ public sealed class ItemEditorControl : UserControl {
     }
 }
 
-public abstract class YamlEditorControl : UserControl {
-    protected readonly EditorContext Ctx;
-    protected readonly ListBox Files=new(){Dock=DockStyle.Fill,HorizontalScrollbar=true};
-    protected readonly TextBox Editor=new(){Dock=DockStyle.Fill,Multiline=true,AcceptsTab=true,ScrollBars=ScrollBars.Both,WordWrap=false,Font=new Font("Consolas",10)};
-    protected readonly ListView Summary=new(){Dock=DockStyle.Bottom,Height=180,View=View.Details,FullRowSelect=true};
-    readonly Label status=new(){Dock=DockStyle.Bottom,Height=26};
+public partial class YamlEditorControl {
+    protected EditorContext Ctx=null!;
+    protected ListBox Files=null!;
+    protected TextBox Editor=null!;
+    protected ListView Summary=null!;
+    protected Label yamlStatus=null!;
+    protected Label yamlTitle=null!;
     protected string CurrentFile="";
 
-    protected YamlEditorControl(EditorContext ctx,string title){Ctx=ctx;Dock=DockStyle.Fill;
-        var top=new FlowLayoutPanel{Dock=DockStyle.Top,Height=42,WrapContents=false};
-        Btn(top,"Refresh",RefreshFiles);Btn(top,"Load",LoadSelected);Btn(top,"Validate",ValidateYamlEditor);Btn(top,"Save",Save);Btn(top,"New Template",NewTemplate);
-        top.Controls.Add(new Label{Text=title,AutoSize=true,Padding=new Padding(14,8,0,0),Font=new Font(Font,FontStyle.Bold)});
-        var split=new SplitContainer{Dock=DockStyle.Fill,SplitterDistance=310};split.Panel1.Controls.Add(Files);split.Panel2.Controls.Add(Editor);split.Panel2.Controls.Add(Summary);
-        Controls.Add(split);Controls.Add(top);Controls.Add(status);
+    protected void RuntimeInitialize(EditorContext ctx,string title){
+        Ctx=ctx;yamlTitle.Text=title;
+        btnYamlRefresh.Click+=(_,_)=>RefreshFiles();
+        btnYamlLoad.Click+=(_,_)=>LoadSelected();
+        btnYamlValidate.Click+=(_,_)=>ValidateYamlEditor();
+        btnYamlSave.Click+=(_,_)=>Save();
+        btnYamlTemplate.Click+=(_,_)=>NewTemplate();
         Files.DoubleClick+=(_,_)=>LoadSelected();
     }
-    static void Btn(FlowLayoutPanel p,string text,Action a){var b=new Button{Text=text,AutoSize=true,Height=30};b.Click+=(_,_)=>a();p.Controls.Add(b);}
-    protected abstract IEnumerable<string> Discover();
-    protected abstract void BuildSummary(string text);
-    protected abstract string TemplateText();
+    protected virtual IEnumerable<string> Discover()=>Array.Empty<string>();
+    protected virtual void BuildSummary(string text){}
+    protected virtual string TemplateText()=>string.Empty;
     public void RefreshFiles(){Files.Items.Clear();foreach(var f in Discover())Files.Items.Add(f);}
-    void LoadSelected(){if(Files.SelectedItem is not string f)return;CurrentFile=f;Editor.Text=File.ReadAllText(f);BuildSummary(Editor.Text);status.Text=f;}
-    void ValidateYamlEditor(){try{SafeProjectFile.ValidateYaml(Editor.Text);BuildSummary(Editor.Text);status.Text="YAML VALID • "+CurrentFile;}catch(Exception ex){status.Text="INVALID • "+ex.Message;}}
+    void LoadSelected(){if(Files.SelectedItem is not string f)return;CurrentFile=f;Editor.Text=File.ReadAllText(f);BuildSummary(Editor.Text);yamlStatus.Text=f;}
+    void ValidateYamlEditor(){try{SafeProjectFile.ValidateYaml(Editor.Text);BuildSummary(Editor.Text);yamlStatus.Text="YAML VALID • "+CurrentFile;}catch(Exception ex){yamlStatus.Text="INVALID • "+ex.Message;}}
     void Save(){if(string.IsNullOrWhiteSpace(CurrentFile)){using var d=new SaveFileDialog{Filter="YAML|*.yml;*.yaml",InitialDirectory=Directory.Exists(Ctx.Settings.ServerRoot)?Ctx.Settings.ServerRoot:""};if(d.ShowDialog()!=DialogResult.OK)return;CurrentFile=d.FileName;}
-        try{SafeProjectFile.Write(CurrentFile,Editor.Text,true);BuildSummary(Editor.Text);status.Text="SAVED + BACKUP • "+CurrentFile;Ctx.Log("Saved "+CurrentFile);RefreshFiles();}catch(Exception ex){MessageBox.Show(ex.Message,"YAML Save");}}
-    void NewTemplate(){CurrentFile="";Editor.Text=TemplateText();BuildSummary(Editor.Text);status.Text="New template • choose Save";}
+        try{SafeProjectFile.Write(CurrentFile,Editor.Text,true);BuildSummary(Editor.Text);yamlStatus.Text="SAVED + BACKUP • "+CurrentFile;Ctx.Log("Saved "+CurrentFile);RefreshFiles();}catch(Exception ex){MessageBox.Show(ex.Message,"YAML Save");}}
+    void NewTemplate(){CurrentFile="";Editor.Text=TemplateText();BuildSummary(Editor.Text);yamlStatus.Text="New template • choose Save";}
 }
 
 public static class BarterYamlOps {
@@ -720,7 +685,7 @@ public static class BarterYamlOps {
     }
 }
 
-public sealed class BarterEditorControl : YamlEditorControl {
+public sealed partial class BarterEditorControl {
     sealed record Selection(string Shop,int Index);
     sealed record RequirementSelection(string Shop,int ItemIndex,int RequirementIndex);
 
@@ -756,137 +721,30 @@ public sealed class BarterEditorControl : YamlEditorControl {
         itemPreviewIcon.Width>=96 &&
         Controls.OfType<SplitContainer>().Any();
 
-    public BarterEditorControl(EditorContext ctx):base(ctx,"Barter Shop Editor • Visual Craft Layout"){
-        Summary.Columns.Add("Shop",120);
-        Summary.Columns.Add("Index",50);
-        Summary.Columns.Add("ID",70);
-        Summary.Columns.Add("AegisName",150);
-        Summary.Columns.Add("Name",170);
-        Summary.Columns.Add("Stock",65);
-        Summary.Columns.Add("Success",70);
-        Summary.Columns.Add("Zeny",80);
+    void RuntimeInitialize(EditorContext context){
+        Ctx=context;
+        yamlTitle.Text="Barter Shop Editor • Visual Craft Layout";
+
         Summary.SelectedIndexChanged+=(_,_)=>LoadSelection();
-
-        requirements.Columns.Add("Index",48);
-        requirements.Columns.Add("ID",68);
-        requirements.Columns.Add("AegisName",145);
-        requirements.Columns.Add("Name",160);
-        requirements.Columns.Add("Amount",65);
-        requirements.Columns.Add("Refine",55);
         requirements.SelectedIndexChanged+=(_,_)=>LoadRequirementSelection();
+        equipPreview.Paint+=DrawEquipPreview;
 
-        var host=Controls.OfType<SplitContainer>().FirstOrDefault();
-        if(host!=null){
-            host.SplitterDistance=260;
-            host.Panel2.Controls.Clear();
+        btnRewardAdd.Click+=(_,_)=>AddReward();
+        btnRewardClone.Click+=(_,_)=>CloneReward();
+        btnRewardDelete.Click+=(_,_)=>RemoveReward();
+        btnRewardUp.Click+=(_,_)=>MoveReward(-1);
+        btnRewardDown.Click+=(_,_)=>MoveReward(1);
 
-            var tabs=new TabControl{Dock=DockStyle.Fill};
-            var visualPage=new TabPage("Visual Editor");
-            var rawPage=new TabPage("Raw YAML");
-            rawPage.Controls.Add(Editor);
-            Editor.Dock=DockStyle.Fill;
-            tabs.TabPages.Add(visualPage);
-            tabs.TabPages.Add(rawPage);
+        btnReqAdd.Click+=(_,_)=>AddRequirement();
+        btnReqDelete.Click+=(_,_)=>RemoveRequirement();
+        btnReqUp.Click+=(_,_)=>MoveRequirement(-1);
+        btnReqDown.Click+=(_,_)=>MoveRequirement(1);
+        btnReqApply.Click+=(_,_)=>ApplyRequirement();
 
-            var main=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Padding=new Padding(6)};
-            main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,64));
-            main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,36));
-            visualPage.Controls.Add(main);
+        btnApplyV2.Click+=(_,_)=>ApplyV2();
+        btnValidateV2.Click+=(_,_)=>BuildSummary(Editor.Text);
+        btnHotWeekTemplate.Click+=(_,_)=>NewHotWeekTemplate();
 
-            var left=new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=2,ColumnCount=1};
-            left.RowStyles.Add(new RowStyle(SizeType.Percent,56));
-            left.RowStyles.Add(new RowStyle(SizeType.Percent,44));
-            main.Controls.Add(left,0,0);
-
-            var soldGroup=new GroupBox{Text="Sold Items",Dock=DockStyle.Fill,Padding=new Padding(8)};
-            var soldToolbar=new FlowLayoutPanel{Dock=DockStyle.Top,Height=38,WrapContents=false};
-            Btn(soldToolbar,"+ Item",AddReward);
-            Btn(soldToolbar,"Clone",CloneReward);
-            Btn(soldToolbar,"Delete",RemoveReward);
-            Btn(soldToolbar,"↑",()=>MoveReward(-1));
-            Btn(soldToolbar,"↓",()=>MoveReward(1));
-            Summary.Dock=DockStyle.Fill;
-            soldGroup.Controls.Add(Summary);
-            soldGroup.Controls.Add(soldToolbar);
-            left.Controls.Add(soldGroup,0,0);
-
-            var reqGroup=new GroupBox{Text="Required Items / Craft Recipe",Dock=DockStyle.Fill,Padding=new Padding(8)};
-            var reqToolbar=new FlowLayoutPanel{Dock=DockStyle.Top,Height=38,WrapContents=false};
-            Btn(reqToolbar,"+ Material",AddRequirement);
-            Btn(reqToolbar,"Delete",RemoveRequirement);
-            Btn(reqToolbar,"↑",()=>MoveRequirement(-1));
-            Btn(reqToolbar,"↓",()=>MoveRequirement(1));
-            var reqEdit=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=72,WrapContents=true,Padding=new Padding(2)};
-            reqEdit.Controls.Add(new Label{Text="Aegis",AutoSize=true,Padding=new Padding(0,8,0,0)});
-            reqEdit.Controls.Add(requirementItem);
-            reqEdit.Controls.Add(new Label{Text="Amount",AutoSize=true,Padding=new Padding(5,8,0,0)});
-            reqEdit.Controls.Add(requirementAmount);
-            reqEdit.Controls.Add(new Label{Text="Refine",AutoSize=true,Padding=new Padding(5,8,0,0)});
-            reqEdit.Controls.Add(requirementRefine);
-            var applyReq=new Button{Text="Apply Material",AutoSize=true,Height=30};
-            applyReq.Click+=(_,_)=>ApplyRequirement();reqEdit.Controls.Add(applyReq);
-            reqGroup.Controls.Add(requirements);
-            reqGroup.Controls.Add(reqEdit);
-            reqGroup.Controls.Add(reqToolbar);
-            left.Controls.Add(reqGroup,0,1);
-
-            var rightTabs=new TabControl{Dock=DockStyle.Fill};
-            var previewPage=new TabPage("Preview");
-            var editPage=new TabPage("Edit / Hot Week");
-            rightTabs.TabPages.Add(previewPage);
-            rightTabs.TabPages.Add(editPage);
-            main.Controls.Add(rightTabs,1,0);
-
-            var previewLayout=new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=2,ColumnCount=1,Padding=new Padding(4)};
-            previewLayout.RowStyles.Add(new RowStyle(SizeType.Percent,52));
-            previewLayout.RowStyles.Add(new RowStyle(SizeType.Percent,48));
-            previewPage.Controls.Add(previewLayout);
-
-            var itemGroup=new GroupBox{Text="Item Preview",Dock=DockStyle.Fill,Padding=new Padding(10)};
-            var itemPreviewLayout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1};
-            itemPreviewLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,138));
-            itemPreviewLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
-            var iconHost=new Panel{Dock=DockStyle.Fill};
-            itemPreviewIcon.Location=new Point(10,18);iconHost.Controls.Add(itemPreviewIcon);
-            var metaFlow=new FlowLayoutPanel{Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,AutoScroll=true};
-            metaFlow.Controls.Add(itemPreviewName);metaFlow.Controls.Add(itemPreviewMeta);metaFlow.Controls.Add(itemPreviewSource);
-            itemPreviewLayout.Controls.Add(iconHost,0,0);itemPreviewLayout.Controls.Add(metaFlow,1,0);
-            itemGroup.Controls.Add(itemPreviewLayout);
-            previewLayout.Controls.Add(itemGroup,0,0);
-
-            var equipGroup=new GroupBox{Text="Equip Preview",Dock=DockStyle.Fill,Padding=new Padding(10)};
-            equipPreview.Paint+=DrawEquipPreview;
-            equipGroup.Controls.Add(equipPreview);
-            equipGroup.Controls.Add(equipPreviewInfo);
-            previewLayout.Controls.Add(equipGroup,0,1);
-
-            var tools=new FlowLayoutPanel{
-                Dock=DockStyle.Fill,FlowDirection=FlowDirection.TopDown,WrapContents=false,
-                AutoScroll=true,Padding=new Padding(12),BackColor=Color.FromArgb(247,247,250)
-            };
-            tools.Controls.Add(new Label{Text="REWARD ITEM",AutoSize=true,Font=new Font(Font,FontStyle.Bold)});
-            tools.Controls.Add(selected);
-            tools.Controls.Add(Field("Reward Item • AegisName",rewardItem));
-            tools.Controls.Add(Row("Zeny",zeny));
-            tools.Controls.Add(new Label{Text="HOT WEEK / SECURE V2",AutoSize=true,Font=new Font(Font,FontStyle.Bold),Margin=new Padding(3,10,3,3)});
-            tools.Controls.Add(Field("Event ID • เปลี่ยนค่าเพื่อ reset limit",eventId));
-            tools.Controls.Add(Field("Start • เวลาของ Server",start));
-            tools.Controls.Add(Field("End • เวลาของ Server",end));
-            tools.Controls.Add(Row("Stock • 0 = unlimited",stock));
-            tools.Controls.Add(Row("SuccessRate • 10000 = 100%",successRate));
-            tools.Controls.Add(consumeOnFail);
-            tools.Controls.Add(Row("Account limit • 0 = unlimited",accountLimit));
-            tools.Controls.Add(Row("Character limit • 0 = unlimited",characterLimit));
-            var buttons=new FlowLayoutPanel{AutoSize=true,Width=320,WrapContents=true};
-            Btn(buttons,"Apply to selected",ApplyV2);
-            Btn(buttons,"Validate V2",()=>BuildSummary(Editor.Text));
-            Btn(buttons,"Hot Week Template",NewHotWeekTemplate);
-            tools.Controls.Add(buttons);
-            tools.Controls.Add(v2Status);
-            editPage.Controls.Add(tools);
-
-            host.Panel2.Controls.Add(tabs);
-        }
         RefreshFiles();
     }
 
@@ -1383,8 +1241,8 @@ Body:
     }
 }
 
-public sealed class PetEditorControl : YamlEditorControl {
-    public PetEditorControl(EditorContext ctx):base(ctx,"Pet Editor"){Summary.Columns.Add("Mob",150);Summary.Columns.Add("Egg",150);Summary.Columns.Add("Food",150);Summary.Columns.Add("Capture",80);RefreshFiles();}
+public sealed partial class PetEditorControl {
+    void RuntimeInitialize(EditorContext context){Ctx=context;yamlTitle.Text="Pet Editor";RefreshFiles();}
     protected override IEnumerable<string> Discover()=>Ctx.Catalog.PetFiles;
     protected override string TemplateText()=>@"Header:
   Type: PET_DB
@@ -1402,10 +1260,9 @@ Body:
     protected override void BuildSummary(string text){Summary.Items.Clear();try{using var sr=new StringReader(text);var y=new YamlStream();y.Load(sr);if(y.Documents[0].RootNode is not YamlMappingNode root||!root.Children.TryGetValue(new YamlScalarNode("Body"),out var body)||body is not YamlSequenceNode seq)return;foreach(var n in seq.OfType<YamlMappingNode>()){string S(string k)=>n.Children.TryGetValue(new YamlScalarNode(k),out var v)?v.ToString():"";Summary.Items.Add(new ListViewItem([S("Mob"),S("EggItem"),S("FoodItem"),S("CaptureRate")]));}}catch{}}
 }
 
-public sealed class NpcEditorControl : UserControl {
-    readonly EditorContext ctx;readonly ListBox files=new(){Dock=DockStyle.Fill,HorizontalScrollbar=true};readonly TextBox editor=new(){Dock=DockStyle.Fill,Multiline=true,AcceptsTab=true,ScrollBars=ScrollBars.Both,WordWrap=false,Font=new Font("Consolas",10)};readonly TextBox search=new(){Width=240,PlaceholderText="filter filename"};readonly Label status=new(){Dock=DockStyle.Bottom,Height=26};string current="";
-    public NpcEditorControl(EditorContext c){ctx=c;Dock=DockStyle.Fill;var top=new FlowLayoutPanel{Dock=DockStyle.Top,Height=42,WrapContents=false};top.Controls.Add(search);Btn(top,"Refresh",RefreshFileList);Btn(top,"Load",LoadSelectedNpc);Btn(top,"Check",Check);Btn(top,"Save",Save);Btn(top,"New NPC",Template);var split=new SplitContainer{Dock=DockStyle.Fill,SplitterDistance=310};split.Panel1.Controls.Add(files);split.Panel2.Controls.Add(editor);Controls.Add(split);Controls.Add(top);Controls.Add(status);search.TextChanged+=(_,_)=>RefreshFileList();files.DoubleClick+=(_,_)=>LoadSelectedNpc();RefreshFileList();}
-    static void Btn(FlowLayoutPanel p,string t,Action a){var b=new Button{Text=t,AutoSize=true,Height=30};b.Click+=(_,_)=>a();p.Controls.Add(b);}
+public sealed partial class NpcEditorControl {
+    EditorContext ctx=null!;readonly ListBox files=new(){Dock=DockStyle.Fill,HorizontalScrollbar=true};readonly TextBox editor=new(){Dock=DockStyle.Fill,Multiline=true,AcceptsTab=true,ScrollBars=ScrollBars.Both,WordWrap=false,Font=new Font("Consolas",10)};readonly TextBox search=new(){Width=240,PlaceholderText="filter filename"};readonly Label status=new(){Dock=DockStyle.Bottom,Height=26};string current="";
+    void RuntimeInitialize(EditorContext c){ctx=c;search.TextChanged+=(_,_)=>RefreshFileList();files.DoubleClick+=(_,_)=>LoadSelectedNpc();btnNpcRefresh.Click+=(_,_)=>RefreshFileList();btnNpcLoad.Click+=(_,_)=>LoadSelectedNpc();btnNpcCheck.Click+=(_,_)=>Check();btnNpcSave.Click+=(_,_)=>Save();btnNpcNew.Click+=(_,_)=>Template();RefreshFileList();}
     void RefreshFileList(){files.Items.Clear();string q=search.Text.Trim();foreach(var f in ctx.Catalog.NpcFiles.Where(x=>q.Length==0||x.Contains(q,StringComparison.OrdinalIgnoreCase)))files.Items.Add(f);}
     void LoadSelectedNpc(){if(files.SelectedItem is not string f)return;current=f;editor.Text=File.ReadAllText(f);Check();}
     void Check(){string t=editor.Text;int braces=t.Count(c=>c=='{')-t.Count(c=>c=='}');int refs=Regex.Matches(t,@"\b(?:getitem|delitem|countitem)\s+\d+",RegexOptions.IgnoreCase).Count;status.Text=braces==0?$"CHECK OK • numeric item refs {refs:N0} • {current}":$"CHECK WARNING • brace balance {braces} • refs {refs:N0}";}
@@ -1413,9 +1270,9 @@ public sealed class NpcEditorControl : UserControl {
     void Template(){current="";editor.Text="morocc03,150,100,4\tscript\tMaven NPC\t4_F_KAFRA6,{\r\n\tmes \"[ Maven NPC ]\";\r\n\tmes \"Hello.\";\r\n\tclose;\r\n}\r\n";Check();}
 }
 
-public sealed class ProjectValidatorControl : UserControl {
-    readonly EditorContext ctx;readonly TextBox report=new(){Dock=DockStyle.Fill,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Both,WordWrap=false,Font=new Font("Consolas",10)};readonly Label status=new(){Dock=DockStyle.Bottom,Height=26};
-    public ProjectValidatorControl(EditorContext c){ctx=c;Dock=DockStyle.Fill;var top=new FlowLayoutPanel{Dock=DockStyle.Top,Height=42};var scan=new Button{Text="Scan Project",AutoSize=true};scan.Click+=async(_,_)=>await Scan();var export=new Button{Text="Export Report",AutoSize=true};export.Click+=(_,_)=>Export();top.Controls.Add(scan);top.Controls.Add(export);Controls.Add(report);Controls.Add(top);Controls.Add(status);}
+public sealed partial class ProjectValidatorControl {
+    EditorContext ctx=null!;readonly TextBox report=new(){Dock=DockStyle.Fill,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Both,WordWrap=false,Font=new Font("Consolas",10)};readonly Label status=new(){Dock=DockStyle.Bottom,Height=26};
+    void RuntimeInitialize(EditorContext c){ctx=c;btnValidatorScan.Click+=async(_,_)=>await Scan();btnValidatorExport.Click+=(_,_)=>Export();}
     async Task Scan(){status.Text="Scanning...";var text=await Task.Run(()=>BuildReport(ctx.Catalog));report.Text=text;status.Text="Scan complete";}
     public static string BuildReport(ProjectCatalog c){
         var sb=new StringBuilder();

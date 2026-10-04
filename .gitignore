@@ -1,0 +1,8 @@
+bin/
+obj/
+release-*/
+.vs/
+config.json
+*.zip
+*.user
+*.suo

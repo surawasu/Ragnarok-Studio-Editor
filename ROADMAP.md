@@ -3,6 +3,29 @@
 ## Vision
 MAVEN RO Studio evolves from a GRF/item inspector into a Ragnarok development IDE. All tools share one Project Catalog so Client, Server, GRF resources, scripts, shops and pets resolve against the same item/resource truth.
 
+## v4.2.1 Designer Regression Hotfix
+- Harden ItemInspector Designer serialization so manual resize does not drop columns/button metadata
+- Move Item Editor top-level visible controls into designer ownership
+- Restore Item Editor item-list pane to 350px with safe minimum sizing
+- Fix Client Color Helper dark-theme contrast and HEX field colors
+- Add smoke assertions for designer persistence + contrast
+
+## v4.2 All Pages Designer
+- Designer-backed UserControl for every sidebar page
+- Item Inspector / GRF Explorer / Data Sources / Diagnostics extracted from Program.cs
+- Item / Barter / NPC / Pet / Validator have dedicated `.cs + .Designer.cs` entry points
+- Shared YAML editor base is designer-friendly for inherited Barter/Pet pages
+- Parameterless constructors and design-time-safe initialization on all editor pages
+- 9/9 sidebar page runtime/designer smoke assertion
+
+## v4.1 Visual Studio Designer Ready
+- Standard `Studio.cs` + `Studio.Designer.cs` WinForms structure
+- Public parameterless designer constructor with heavy-runtime initialization guard
+- Designer owns the real shell controls used at runtime
+- Runtime editors injected into designer-owned `contentHost`
+- `.csproj` Form/DependentUpon metadata for Solution Explorer nesting and View Designer
+- DesignTimeBuild + runtime smoke verification
+
 ## v4.0 Flat Purple UI
 - Global reusable purple-black flat theme system
 - Modern sidebar with active state and grouped navigation

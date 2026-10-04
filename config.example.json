@@ -1,0 +1,19 @@
+{
+  "Client": "D:\\Maven-RO-client",
+  "ServerRoot": "D:\\MAVEN-RO-Server",
+  "ItemInfoFiles": [
+    "grf://data\\luafiles514\\lua files\\datainfo\\iteminfo.lub",
+    "D:\\Maven-RO-client\\System\\itemInfo_true.lub"
+  ],
+  "ItemDbFiles": [
+    "D:\\MAVEN-RO-Server\\db\\pre-re\\item_db_usable.yml",
+    "D:\\MAVEN-RO-Server\\db\\pre-re\\item_db_equip.yml",
+    "D:\\MAVEN-RO-Server\\db\\pre-re\\item_db_etc.yml",
+    "D:\\MAVEN-RO-Server\\db\\import\\maven_ro_studio_item_db.yml"
+  ],
+  "Encoding": 949,
+  "LooseFirst": false,
+  "ClientItemWriteTarget": "SystemEN\\itemInfo_C.lua",
+  "ClientItemTable": "tbl_custom",
+  "ServerItemWriteTarget": "db\\import\\maven_ro_studio_item_db.yml"
+}

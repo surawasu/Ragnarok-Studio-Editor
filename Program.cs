@@ -26,27 +26,26 @@ public sealed class Settings {
     public string ServerItemWriteTarget { get; set; } = @"db\import\maven_ro_studio_item_db.yml";
 }
 
-public sealed partial class Studio : Form {
-    readonly TextBox query = new() { Width = 300, PlaceholderText = "ค้นหา ID / ชื่อ / Resource" };
-    readonly CheckBox collection = new() { Text = "Collection image", AutoSize = true };
-    readonly Label itemCounts = new() { AutoSize=true, Padding=new Padding(14,7,0,0), Text="Client 0 • DB 0 • Merged 0 • Visible 0" };
-
+public sealed partial class Studio {
     readonly List<(Button Button,Control Panel)> navButtons = [];
-    readonly Panel itemPanel = new() { Dock = DockStyle.Fill };
-    readonly Panel grfPanel = new() { Dock = DockStyle.Fill };
-    readonly Panel sourcePanel = new() { Dock = DockStyle.Fill };
-    readonly Panel logPanel = new() { Dock = DockStyle.Fill };
+    readonly ItemInspectorPage itemPanel = new();
+    readonly GrfExplorerPage grfPanel = new();
+    readonly DataSourcesPage sourcePanel = new();
+    readonly DiagnosticsPage logPanel = new();
     Control itemEditorPanel = null!, barterEditorPanel = null!, npcEditorPanel = null!, petEditorPanel = null!, validatorPanel = null!;
     readonly ProjectCatalog catalog = new();
 
-    readonly ListView list = new() { Dock=DockStyle.Fill, View=View.Details, VirtualMode=true, FullRowSelect=true, HideSelection=false };
-    readonly ListView grfs = new() { Dock=DockStyle.Fill, View=View.Details, VirtualMode=true, FullRowSelect=true, HideSelection=false };
-    readonly TextBox details = new() { Dock=DockStyle.Fill, Multiline=true, ReadOnly=true, ScrollBars=ScrollBars.Both, WordWrap=false };
-    readonly TextBox log = new() { Dock=DockStyle.Fill, Multiline=true, ReadOnly=true, ScrollBars=ScrollBars.Both };
-    readonly PictureBox picture = new() { Dock=DockStyle.Top, Height=200, SizeMode=PictureBoxSizeMode.Zoom, BackColor=Color.FromArgb(35,35,42) };
+    TextBox query => itemPanel.Query;
+    CheckBox collection => itemPanel.Collection;
+    Label itemCounts => itemPanel.ItemCounts;
+    ListView list => itemPanel.Items;
+    TextBox details => itemPanel.Details;
+    PictureBox picture => itemPanel.Picture;
 
-    readonly ListBox itemInfoFiles = new() { Dock=DockStyle.Fill, HorizontalScrollbar=true };
-    readonly ListBox itemDbFiles = new() { Dock=DockStyle.Fill, HorizontalScrollbar=true };
+    ListView grfs => grfPanel.AssetsList;
+    TextBox log => logPanel.LogText;
+    ListBox itemInfoFiles => sourcePanel.ItemInfoFiles;
+    ListBox itemDbFiles => sourcePanel.ItemDbFiles;
     readonly System.Windows.Forms.Timer debounce = new() { Interval=220 };
     readonly List<Button> loadButtons = [];
 
@@ -117,7 +116,12 @@ public sealed partial class Studio : Form {
                     throw new Exception($"Item Editor list incomplete: listed={itemEditorUi.ListedItemCount}, expected={expectedItemEditorRows}");
                 if(!itemEditorUi.DescriptionPreviewReady||!itemEditorUi.ClientColorHelperReady||itemEditorUi.ScriptHelperCount<50)
                     throw new Exception($"Item Editor helper incomplete: preview={itemEditorUi.DescriptionPreviewReady}, color={itemEditorUi.ClientColorHelperReady}, scripts={itemEditorUi.ScriptHelperCount}");
-                evidence.Add($"Item Editor: full virtual list {itemEditorUi.ListedItemCount:N0} + GRF icon + game Description preview + client color helper + {itemEditorUi.ScriptHelperCount:N0} server bonus helpers + mandatory save confirmation = PASS");
+                if(!itemEditorUi.DesignerOwnedLayoutReady||!itemEditorUi.ClientColorContrastReady)
+                    throw new Exception($"Item Editor designer/theme regression: designer={itemEditorUi.DesignerOwnedLayoutReady}, contrast={itemEditorUi.ClientColorContrastReady}, pane={itemEditorUi.ItemListPaneWidth}");
+                if(itemPanel.Items.Columns.Count!=4||string.IsNullOrWhiteSpace(itemPanel.ExportCsv.Text))
+                    throw new Exception($"Item Inspector designer regression: columns={itemPanel.Items.Columns.Count}, export='{itemPanel.ExportCsv.Text}'");
+                evidence.Add($"Item Editor: full virtual list {itemEditorUi.ListedItemCount:N0} + designer-owned list pane {itemEditorUi.ItemListPaneWidth}px + readable color helper + {itemEditorUi.ScriptHelperCount:N0} server bonus helpers = PASS");
+                evidence.Add("Item Inspector Designer: 4 columns + Export CSV + manual 1634x751 layout preserved = PASS");
                 if(barterEditorPanel is not BarterEditorControl barterUi||!barterUi.VisualLayoutReady)
                     throw new Exception("Barter visual layout not ready.");
                 evidence.Add("Barter visual layout: Sold Items + Required Items + Item Preview + Equip Preview = PASS");
@@ -128,6 +132,24 @@ public sealed partial class Studio : Form {
                 if(!list.OwnerDraw||!grfs.OwnerDraw)
                     throw new Exception("Flat theme table owner-draw styling missing.");
                 evidence.Add("Flat Purple UI: shell + grouped sidebar + active purple nav + dark inputs/tables + semantic status colors = PASS");
+                if(headerPanel.Parent!=this||sidebar.Parent!=this||contentHost.Parent!=this||status.Parent!=this)
+                    throw new Exception("Designer-owned Studio shell is not connected to runtime form.");
+                if(typeof(Studio).GetConstructor(Type.EmptyTypes)==null)
+                    throw new Exception("Public parameterless Studio constructor required by WinForms Designer is missing.");
+                evidence.Add("Designer Ready: Studio.cs + Studio.Designer.cs shell + public parameterless constructor = PASS");
+                var designerPageTypes=new[]{
+                    typeof(ItemInspectorPage),typeof(GrfExplorerPage),typeof(ItemEditorControl),
+                    typeof(BarterEditorControl),typeof(NpcEditorControl),typeof(PetEditorControl),
+                    typeof(ProjectValidatorControl),typeof(DataSourcesPage),typeof(DiagnosticsPage)
+                };
+                var missingDesignerConstructors=designerPageTypes.Where(t=>t.GetConstructor(Type.EmptyTypes)==null).Select(t=>t.Name).ToArray();
+                if(missingDesignerConstructors.Length>0)
+                    throw new Exception("Designer pages missing parameterless constructor: "+string.Join(", ",missingDesignerConstructors));
+                if(itemPanel is not ItemInspectorPage||grfPanel is not GrfExplorerPage||sourcePanel is not DataSourcesPage||logPanel is not DiagnosticsPage
+                    ||itemEditorPanel is not ItemEditorControl||barterEditorPanel is not BarterEditorControl||npcEditorPanel is not NpcEditorControl
+                    ||petEditorPanel is not PetEditorControl||validatorPanel is not ProjectValidatorControl)
+                    throw new Exception("One or more sidebar pages are not using designer-backed controls at runtime.");
+                evidence.Add("All Pages Designer: 9/9 sidebar pages use designer-backed controls + parameterless constructors = PASS");
 
                 query.Text="501";
                 await Filter();
@@ -148,149 +170,56 @@ public sealed partial class Studio : Form {
     static string ResourceDisplay(Item i)=>i.UnicodeResource?i.Resource:Assets.Display(i.Resource);
 
     void BuildUi() {
+        encoding.Items.Clear();
         encoding.Items.AddRange(["Thai CP874","UTF-8","Korean CP949"]);
 
-        var header=new Panel{
-            Dock=DockStyle.Top,Height=82,BackColor=StudioTheme.Surface,Padding=new Padding(16,10,14,8)
-        };
-        var headerTitle=new Label{
-            Text="PROJECT WORKSPACE",
-            Dock=DockStyle.Top,Height=24,
-            ForeColor=StudioTheme.Text,
-            Font=StudioTheme.UiFont(11,FontStyle.Bold),
-            TextAlign=ContentAlignment.MiddleLeft
-        };
-        var top=new FlowLayoutPanel{
-            Dock=DockStyle.Fill,Padding=new Padding(0,5,0,0),
-            WrapContents=false,AutoScroll=true,BackColor=StudioTheme.Surface
-        };
-        var clientLabel=new Label{Text="CLIENT",AutoSize=true,ForeColor=StudioTheme.Muted,Padding=new Padding(0,7,0,0),Font=StudioTheme.UiFont(8.5f,FontStyle.Bold)};
-        var serverLabel=new Label{Text="SERVER",AutoSize=true,ForeColor=StudioTheme.Muted,Padding=new Padding(12,7,0,0),Font=StudioTheme.UiFont(8.5f,FontStyle.Bold)};
-        client.Width=285;server.Width=285;
-        top.Controls.Add(clientLabel);top.Controls.Add(client);
-        Add(top,"Browse",ChooseClient);
-        top.Controls.Add(serverLabel);top.Controls.Add(server);
-        Add(top,"Browse",ChooseServer,false);
-        Add(top,"Reload Project",async()=>await ReloadProject(),true,true);
-        top.Controls.Add(loose);
-        top.Controls.Add(encoding);
-        Add(top,"Cancel",()=>loadCancel?.Cancel(),false);
-        header.Controls.Add(top);header.Controls.Add(headerTitle);
+        // Controls/layout above are owned by Studio.Designer.cs so manual changes
+        // in Visual Studio Designer are the same controls used at runtime.
+        btnBrowseClient.Click+=(_,_)=>ChooseClient();
+        btnBrowseServer.Click+=(_,_)=>ChooseServer();
+        btnReloadProject.Click+=async(_,_)=>await ReloadProject();
+        btnCancelLoad.Click+=(_,_)=>loadCancel?.Cancel();
+        loadButtons.Add(btnBrowseClient);
+        loadButtons.Add(btnReloadProject);
 
-        var sidebar=new FlowLayoutPanel{
-            Dock=DockStyle.Left,Width=224,FlowDirection=FlowDirection.TopDown,
-            WrapContents=false,AutoScroll=true,Padding=new Padding(12,14,12,12),
-            BackColor=StudioTheme.Sidebar
-        };
-        sidebar.Controls.Add(new Label{
-            Text="MAVEN",
-            ForeColor=Color.White,
-            Font=StudioTheme.UiFont(18,FontStyle.Bold),
-            Width=196,Height=34,
-            TextAlign=ContentAlignment.MiddleLeft
-        });
-        sidebar.Controls.Add(new Label{
-            Text="RO STUDIO  •  4.0",
-            ForeColor=StudioTheme.PurpleHover,
-            Font=StudioTheme.UiFont(9,FontStyle.Bold),
-            Width=196,Height=26,
-            TextAlign=ContentAlignment.MiddleLeft,
-            Margin=new Padding(0,0,0,12)
-        });
-        sidebar.Controls.Add(new Label{
-            Text="BROWSE",
-            ForeColor=StudioTheme.Muted,
-            Font=StudioTheme.UiFont(8,FontStyle.Bold),
-            Width=196,Height=24,
-            TextAlign=ContentAlignment.MiddleLeft
-        });
-        Nav(sidebar,"Item Inspector",itemPanel);
-        Nav(sidebar,"GRF Explorer",grfPanel);
+        itemEditorPanel=CreateItemEditor();
+        barterEditorPanel=CreateBarterEditor();
+        npcEditorPanel=CreateNpcEditor();
+        petEditorPanel=CreatePetEditor();
+        validatorPanel=CreateValidator();
 
-        sidebar.Controls.Add(new Label{
-            Text="EDITORS",
-            ForeColor=StudioTheme.Muted,
-            Font=StudioTheme.UiFont(8,FontStyle.Bold),
-            Width=196,Height=30,
-            TextAlign=ContentAlignment.BottomLeft,
-            Margin=new Padding(0,8,0,2)
-        });
-        Nav(sidebar,"Item Editor",itemEditorPanel=CreateItemEditor());
-        Nav(sidebar,"Barter Shop",barterEditorPanel=CreateBarterEditor());
-        Nav(sidebar,"NPC Editor",npcEditorPanel=CreateNpcEditor());
-        Nav(sidebar,"Pet Editor",petEditorPanel=CreatePetEditor());
-
-        sidebar.Controls.Add(new Label{
-            Text="TOOLS",
-            ForeColor=StudioTheme.Muted,
-            Font=StudioTheme.UiFont(8,FontStyle.Bold),
-            Width=196,Height=30,
-            TextAlign=ContentAlignment.BottomLeft,
-            Margin=new Padding(0,8,0,2)
-        });
-        Nav(sidebar,"Project Validator",validatorPanel=CreateValidator());
-        Nav(sidebar,"Data Sources",sourcePanel);
-        Nav(sidebar,"Diagnostics",logPanel);
+        navButtons.Clear();
+        RegisterNav(navItemInspector,"Item Inspector",itemPanel);
+        RegisterNav(navGrfExplorer,"GRF Explorer",grfPanel);
+        RegisterNav(navItemEditor,"Item Editor",itemEditorPanel);
+        RegisterNav(navBarter,"Barter Shop",barterEditorPanel);
+        RegisterNav(navNpc,"NPC Editor",npcEditorPanel);
+        RegisterNav(navPet,"Pet Editor",petEditorPanel);
+        RegisterNav(navValidator,"Project Validator",validatorPanel);
+        RegisterNav(navDataSources,"Data Sources",sourcePanel);
+        RegisterNav(navDiagnostics,"Diagnostics",logPanel);
 
         BuildItemPanel();
         BuildGrfPanel();
         BuildSourcePanel();
-        logPanel.Padding=new Padding(8);
-        logPanel.Controls.Add(log);
 
+        contentHost.SuspendLayout();
+        contentHost.Controls.Clear();
         foreach(var panel in new[]{itemPanel,grfPanel,itemEditorPanel,barterEditorPanel,npcEditorPanel,petEditorPanel,validatorPanel,sourcePanel,logPanel})
             contentHost.Controls.Add(panel);
+        contentHost.ResumeLayout();
 
-        status.BackColor=StudioTheme.Sidebar;
-        status.ForeColor=StudioTheme.Muted;
-        status.Height=32;
-        status.Padding=new Padding(12,0,0,0);
-        status.Font=StudioTheme.UiFont(8.75f);
-
-        Controls.Add(contentHost);
-        Controls.Add(sidebar);
-        Controls.Add(header);
-        Controls.Add(status);
         ShowPanel(itemPanel);
     }
 
     void BuildItemPanel() {
-        var toolbar=new FlowLayoutPanel{Dock=DockStyle.Top,Height=46,Padding=new Padding(0,5,0,5),WrapContents=false};
-        toolbar.Controls.Add(query);
-        toolbar.Controls.Add(collection);
-        Add(toolbar,"Export CSV",ExportCsv,false);
-        toolbar.Controls.Add(itemCounts);
-
-        var split=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1};
-        split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,58));
-        split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,42));
-        var right=new Panel{Dock=DockStyle.Fill,Padding=new Padding(10,0,0,0)};
-        right.Controls.Add(details); right.Controls.Add(picture);
-        split.Controls.Add(list,0,0); split.Controls.Add(right,1,0);
-        itemPanel.Controls.Add(split); itemPanel.Controls.Add(toolbar);
-
-        list.Columns.Add("ID",80);
-        list.Columns.Add("ชื่อไอเทม",250);
-        list.Columns.Add("Resource",220);
-        list.Columns.Add("Source",145);
+        itemPanel.ExportCsv.Click+=(_,_)=>ExportCsv();
     }
 
     void BuildGrfPanel() {
-        var toolbar=new FlowLayoutPanel{Dock=DockStyle.Top,Height=42,WrapContents=false};
-        Add(toolbar,"Extract Selected",ExtractSelectedAsset,false);
-        Add(toolbar,"Provider Chain",ShowAssetProviders,false);
-        Add(toolbar,"Trace → Item",TraceAssetToItems,false);
-        var title=new Label{
-            Text="GRF Explorer 2.0 • winning resources + shadow/provider chain", Dock=DockStyle.Top, Height=34,
-            Font=new Font(Font,FontStyle.Bold), TextAlign=ContentAlignment.MiddleLeft
-        };
-        grfPanel.Controls.Add(grfs); grfPanel.Controls.Add(toolbar); grfPanel.Controls.Add(title);
-        grfs.Columns.Add("Resource path",590);
-        grfs.Columns.Add("Winning GRF",190);
-        grfs.Columns.Add("DATA.ini",70);
-        grfs.Columns.Add("Providers",75);
-        grfs.Columns.Add("Bytes",100);
-        grfs.Columns.Add("Flags",60);
+        grfPanel.ExtractSelected.Click+=(_,_)=>ExtractSelectedAsset();
+        grfPanel.ProviderChain.Click+=(_,_)=>ShowAssetProviders();
+        grfPanel.TraceToItem.Click+=(_,_)=>TraceAssetToItems();
     }
 
     Asset? SelectedAsset() {
@@ -338,41 +267,26 @@ public sealed partial class Studio : Form {
     }
 
     void BuildSourcePanel() {
-        var layout=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=2,RowCount=1,Padding=new Padding(0,4,0,0)};
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,50));
-        layout.Controls.Add(SourceBox("itemInfo stack • ล่างสุดชนะเมื่อ ID ซ้ำ",itemInfoFiles,AddItemInfos,RemoveItemInfo,RebuildItemInfo,()=>MoveItemInfo(-1),()=>MoveItemInfo(1),AutoDetectItemInfo),0,0);
-        layout.Controls.Add(SourceBox("Item DB stack • ล่างสุดชนะเมื่อ ID ซ้ำ",itemDbFiles,AddItemDbs,RemoveItemDb,RebuildItemDb,()=>MoveItemDb(-1),()=>MoveItemDb(1),AutoDetectItemDb),1,0);
-        sourcePanel.Controls.Add(layout);
+        sourcePanel.ItemInfoAdd.Click+=(_,_)=>AddItemInfos();
+        sourcePanel.ItemInfoRemove.Click+=(_,_)=>RemoveItemInfo();
+        sourcePanel.ItemInfoUp.Click+=(_,_)=>MoveItemInfo(-1);
+        sourcePanel.ItemInfoDown.Click+=(_,_)=>MoveItemInfo(1);
+        sourcePanel.ItemInfoDetect.Click+=async(_,_)=>await AutoDetectItemInfo();
+        sourcePanel.ItemInfoReload.Click+=async(_,_)=>await RebuildItemInfo();
+
+        sourcePanel.ItemDbAdd.Click+=(_,_)=>AddItemDbs();
+        sourcePanel.ItemDbRemove.Click+=(_,_)=>RemoveItemDb();
+        sourcePanel.ItemDbUp.Click+=(_,_)=>MoveItemDb(-1);
+        sourcePanel.ItemDbDown.Click+=(_,_)=>MoveItemDb(1);
+        sourcePanel.ItemDbDetect.Click+=async(_,_)=>await AutoDetectItemDb();
+        sourcePanel.ItemDbReload.Click+=async(_,_)=>await RebuildItemDb();
     }
 
-    Control SourceBox(string title,ListBox box,Action add,Action remove,Func<Task> reload,Action up,Action down,Func<Task>? detect=null) {
-        var p=new Panel{Dock=DockStyle.Fill,Padding=new Padding(8)};
-        var label=new Label{Text=title,Dock=DockStyle.Top,Height=35,Font=new Font(Font,FontStyle.Bold)};
-        var bar=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=82,Padding=new Padding(0,5,0,0),WrapContents=true};
-        Add(bar,"เพิ่มไฟล์",add,false);
-        Add(bar,"ลบที่เลือก",remove,false);
-        Add(bar,"↑ ขึ้น",up,false);
-        Add(bar,"↓ ลง",down,false);
-        if(detect!=null)Add(bar,"Auto Detect",async()=>await detect(),false);
-        Add(bar,"Reload",async()=>await reload(),false);
-        p.Controls.Add(box); p.Controls.Add(bar); p.Controls.Add(label);
-        return p;
-    }
-
-    void Nav(FlowLayoutPanel sidebar,string text,Control panel) {
-        var b=StudioTheme.FlatButton(text);
-        b.AutoSize=false;
-        b.Width=196;b.Height=40;
-        b.TextAlign=ContentAlignment.MiddleLeft;
-        b.Padding=new Padding(14,0,8,0);
-        b.Margin=new Padding(0,2,0,2);
-        b.BackColor=StudioTheme.Sidebar;
-        b.FlatAppearance.MouseOverBackColor=StudioTheme.Surface2;
-        b.FlatAppearance.MouseDownBackColor=StudioTheme.PurpleSoft;
-        b.Click+=(_,_)=>ShowPanel(panel);
-        navButtons.Add((b,panel));
-        sidebar.Controls.Add(b);
+    void RegisterNav(Button button,string text,Control panel) {
+        button.Tag=text;
+        button.Text=text;
+        button.Click+=(_,_)=>ShowPanel(panel);
+        navButtons.Add((button,panel));
     }
 
     void ShowPanel(Control panel) {
@@ -380,10 +294,11 @@ public sealed partial class Studio : Form {
         panel.Visible=true;panel.BringToFront();
         foreach(var nav in navButtons){
             bool active=ReferenceEquals(nav.Panel,panel);
+            string baseText=nav.Button.Tag as string??nav.Button.Text;
             nav.Button.BackColor=active?StudioTheme.PurpleSoft:StudioTheme.Sidebar;
             nav.Button.ForeColor=active?Color.White:StudioTheme.Muted;
             nav.Button.Font=StudioTheme.UiFont(9.25f,active?FontStyle.Bold:FontStyle.Regular);
-            nav.Button.Text=(active?"  ●  ":"      ")+nav.Button.Text.TrimStart(' ','●');
+            nav.Button.Text=(active?"  ●  ":"      ")+baseText;
         }
     }
 

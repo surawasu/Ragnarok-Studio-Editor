@@ -1,6 +1,37 @@
-# MAVEN RO Studio 4.0
+# MAVEN RO Studio 4.2.1
 
 เครื่องมือพัฒนา MAVEN-RO แบบรวม Client + Server + GRF + itemInfo + rAthena DB/Script ไว้ใน Project Catalog เดียว
+
+## 4.2.1 Designer + Item Editor Hotfix
+
+- แก้ Visual Studio Designer re-serialize แล้ว `ItemInspectorPage` ทำคอลัมน์/ข้อความปุ่มหาย โดยเปลี่ยนเป็น Designer code มาตรฐานและคงขนาดที่ปรับไว้ `1634x751`
+- `ItemInspectorPage` เก็บ ColumnHeader เป็น designer-owned components: ID / ชื่อไอเทม / Resource / Source
+- `Item Editor` ย้าย `Item ID`, Search, Item List, Icon Preview และ splitter ให้ `.Designer.cs` เป็นเจ้าของจริง เพื่อไม่ให้ Visual Studio ลบ control ตอน Save Designer
+- แก้ Item Editor left pane จาก 121px เป็น 350px พร้อม MinSize ป้องกันถูกบีบจนอ่านรายการไม่ได้
+- แก้ Color Helper จากพื้นสว่าง+ตัวอักษรสว่างเป็น dark surface และแก้ HEX input ให้ใช้ foreground/background ที่อ่านได้
+- เพิ่ม regression smoke ตรวจ designer-owned layout, pane width, color contrast และ Item Inspector columns
+
+## 4.2 All Pages Designer
+
+- แยกทุกหน้าใน Sidebar เป็น WinForms UserControl ที่มีไฟล์ `<Page>.cs + <Page>.Designer.cs`
+- หน้า Designer ครบ 9/9: `Item Inspector`, `GRF Explorer`, `Item Editor`, `Barter Shop`, `NPC Editor`, `Pet Editor`, `Project Validator`, `Data Sources`, `Diagnostics`
+- `Item Editor` ย้ายโครง top toolbar / item list / preview / Client host / Server host เข้า Designer; logic parse/save/sync อยู่ไฟล์เดิม
+- `Barter Shop` ย้ายโครง Sold Items / Required Items / Preview / Edit-Hot Week / Raw YAML เข้า Designer
+- `NPC Editor`, `Pet Editor`, `Project Validator` มี Designer entry ของตัวเอง
+- `Item Inspector`, `GRF Explorer`, `Data Sources`, `Diagnostics` เปลี่ยนจาก Panel ใน `Program.cs` เป็น UserControl Designer แยกจริง
+- ทุกหน้ามี parameterless constructor สำหรับ Visual Studio Designer และ runtime ยังคงใช้ control ชุดเดียวกัน
+- `.csproj` มี `SubType=UserControl` + `DependentUpon` ครบทุกหน้า
+- ผ่าน DesignTimeBuild + runtime smoke: `All Pages Designer: 9/9 ... = PASS`
+
+## 4.1 Visual Studio Designer Ready
+
+- แยก Main Form เป็น `Studio.cs` + `Studio.Designer.cs` ตามโครง WinForms มาตรฐาน
+- เพิ่ม public parameterless constructor สำหรับ Visual Studio Designer และ design-time guard เพื่อไม่โหลด GRF / itemInfo / DB / Project Catalog ตอนเปิด Designer
+- Header, Client/Server controls, Sidebar, Navigation, `contentHost` และ Status bar เป็น controls ที่ Designer เป็นเจ้าของจริง การลาก/ปรับขนาด/เปลี่ยนสีใน Designer จะมีผลกับ runtime
+- Runtime editor modules ถูก inject ลง `contentHost` หลังเปิดโปรแกรม จึงไม่ทำให้ Designer ค้าง
+- เพิ่ม metadata ใน `.csproj` ให้ `Studio.Designer.cs` nested ใต้ `Studio.cs` และ `Studio.cs` มี `SubType=Form`
+- ผ่าน `DesignTimeBuild` และ runtime smoke test
+- คู่มือ: `DESIGNER_GUIDE.md`
 
 ## 4.0 Flat Purple UI
 
@@ -160,7 +191,7 @@ Sidebar ซ้าย:
 
 ## วิธีใช้งาน
 
-1. เปิด `release-4.0\MavenROStudio.exe`
+1. เปิด `release-4.2.1\MavenROStudio.exe`
 2. เลือก Client folder ที่มี `DATA.ini`
 3. กด **โหลด DATA.ini / GRF**
 4. ไปที่ **Data Sources**
@@ -206,7 +237,7 @@ Build:
 
 Publish:
 
-`dotnet publish MavenROStudio.csproj -c Release -o release-4.0`
+`dotnet publish MavenROStudio.csproj -c Release -o release-4.2.1`
 
 Verify:
 

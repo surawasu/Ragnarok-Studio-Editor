@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace MavenROStudio;
 
 [DesignerCategory("Form")]
-public sealed partial class Studio
+public sealed partial class Studio : Form
 {
     /// <summary>
     /// Parameterless constructor required by the WinForms Designer.

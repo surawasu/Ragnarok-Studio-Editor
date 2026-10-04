@@ -1,9 +1,0 @@
-D:\JUTI-RO\MavenROStudio-New\release-3.0\MavenROStudio.exe
-D:\JUTI-RO\MavenROStudio-New\release-3.0\config.json
-D:\JUTI-RO\MavenROStudio-New\release-3.0\README.md
-D:\JUTI-RO\MavenROStudio-New\release-3.0\ROADMAP.md
-D:\JUTI-RO\MavenROStudio-New\release-3.0\MavenROStudio.dll
-D:\JUTI-RO\MavenROStudio-New\release-3.0\MavenROStudio.deps.json
-D:\JUTI-RO\MavenROStudio-New\release-3.0\MavenROStudio.runtimeconfig.json
-D:\JUTI-RO\MavenROStudio-New\release-3.0\MavenROStudio.pdb
-D:\JUTI-RO\MavenROStudio-New\release-3.0\YamlDotNet.dll

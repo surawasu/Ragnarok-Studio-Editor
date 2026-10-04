@@ -1,6 +1,0 @@
-D:\JUTI-RO\MavenROStudio-New\release-2.3\MavenROStudio.exe
-D:\JUTI-RO\MavenROStudio-New\release-2.3\MavenROStudio.dll
-D:\JUTI-RO\MavenROStudio-New\release-2.3\MavenROStudio.deps.json
-D:\JUTI-RO\MavenROStudio-New\release-2.3\MavenROStudio.runtimeconfig.json
-D:\JUTI-RO\MavenROStudio-New\release-2.3\MavenROStudio.pdb
-D:\JUTI-RO\MavenROStudio-New\release-2.3\YamlDotNet.dll
